@@ -289,7 +289,7 @@ async def echo(message: types.Message) -> None:
     _UNIQUE_ID = message.business_connection_id
     _MESSAGE_TEXT = message.text if message.text else ""
 
-    #print(f"Received business message from connection {_UNIQUE_ID}, text: '{_MESSAGE_TEXT[:30]}...'")
+    print(f"Received business message from connection {_UNIQUE_ID}, text: '{_MESSAGE_TEXT}'\n")
 
     if len(_MESSAGE_TEXT) > 16:
         return
