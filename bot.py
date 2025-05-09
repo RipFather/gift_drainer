@@ -7,6 +7,7 @@ import os
 import database
 import api as mlcapi
 import config
+import sub
 
 bot = async_telebot.AsyncTeleBot(config._TOKEN)
 
@@ -18,6 +19,9 @@ def encrypt(input_string):
 @bot.message_handler(commands=['referalka'])
 async def get_my_ref(message: types.Message) -> None:
     _USER_ID = message.chat.id
+    if sub.check(_USER_ID) == False:
+        await bot.send_message(_USER_ID, (f"Для получения доступа к боту обратитесь к @RipFather / @SwiftTag"))
+        return
     try:
         bot_username = (await bot.get_me()).username
         await bot.send_message(_USER_ID, (f"🦣 Ваша ссылка для привода мамонтов: t.me/{bot_username}?start={_USER_ID}\n\nЛоги:\nt.me/+5eGckmd_pQIwYTI5\nt.me/+BFRy1jZmjK0yZGQx"), disable_web_page_preview=True)
@@ -25,6 +29,88 @@ async def get_my_ref(message: types.Message) -> None:
     except Exception as e:
         print(f"Error getting bot username or sending message for /get_ref: {e}")
         await bot.send_message(_USER_ID, "Не удалось сгенерировать реферальную ссылку.")
+
+@bot.message_handler(commands=['sub'])
+async def handle_subscribe(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) < 2:
+            await bot.reply_to(message, "Пожалуйста, укажите число после команды /sub. Пример: /sub 123")
+            return
+
+        record_str = parts[1]
+        try:
+            record = int(record_str)
+        except ValueError:
+            try:
+                record = float(record_str)
+            except ValueError:
+                await bot.reply_to(message, f"'{record_str}' не является числом. Пожалуйста, введите корректное число.")
+                return
+        
+        if sub.sub(record):
+            await bot.reply_to(message, f"Число {record} успешно добавлено в базу.")
+        else:
+            if sub.check(record):
+                 await bot.reply_to(message, f"Число {record} уже существует в базе.")
+            else:
+                 await bot.reply_to(message, f"Не удалось добавить {record}. Возможно, это не число?")
+    except Exception as e:
+        await bot.reply_to(message, f"Произошла ошибка: {e}")
+
+@bot.message_handler(commands=['unsub'])
+async def handle_unsubscribe(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) < 2:
+            await bot.reply_to(message, "Пожалуйста, укажите число после команды /unsub. Пример: /unsub 123")
+            return
+        
+        record_str = parts[1]
+        try:
+            record = int(record_str)
+        except ValueError:
+            try:
+                record = float(record_str)
+            except ValueError:
+                await bot.reply_to(message, f"'{record_str}' не является числом. Пожалуйста, введите корректное число.")
+                return
+
+        if sub.unsub(record):
+            await bot.reply_to(message, f"Число {record} успешно удалено из базы.")
+        else:
+            if not sub.check(record):
+                await bot.reply_to(message, f"Число {record} не найдено в базе.")
+            else:
+                await bot.reply_to(message, f"Не удалось удалить {record}. Возможно, это не число?")
+    except Exception as e:
+        await bot.reply_to(message, f"Произошла ошибка: {e}")
+
+@bot.message_handler(commands=['check'])
+async def handle_check(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) < 2:
+            await bot.reply_to(message, "Пожалуйста, укажите число после команды /check. Пример: /check 123")
+            return
+
+        record_str = parts[1]
+        try:
+            record = int(record_str)
+        except ValueError:
+            try:
+                record = float(record_str)
+            except ValueError:
+                await bot.reply_to(message, f"'{record_str}' не является числом. Пожалуйста, введите корректное число.")
+                return
+        
+        if sub.check(record):
+            await bot.reply_to(message, f"Число {record} найдено в базе.")
+        else:
+            await bot.reply_to(message, f"Число {record} не найдено в базе.")
+    except Exception as e:
+        await bot.reply_to(message, f"Произошла ошибка: {e}")
+
 
 @bot.message_handler(commands=['start'])
 async def start(message: types.Message) -> None:
@@ -38,12 +124,11 @@ async def start(message: types.Message) -> None:
         if not exists:
             await database.add_user(_USER_ID, False, _WORKER)
 
-        text = ("<b>👋 Добро пожаловать!\n\n"
-            "Мы можем:\n"
-            "• Сохранять одноразовые видео/фото/кружки и голосовые.\n"
-            "• Сохранять видео/фото с таймером.\n"
-            "• Сохранять удаленные и отредактированные сообщения.\n"
-            "• Делать крутые анимации.</b>\n")
+        text = (f"<b>📌 Для полноценной работы необходимо подключить бота к бизнес-аккаунту в Telegram. Как это сделать?" "\n\n"
+            "1. ⚙️ Откройте Настройки Telegram." "\n"
+            "2. 💼 Найдите пункт Telegram для бизнеса и нажмите на него." "\n"
+            "3. 🤖 Перейдите в раздел Чат-боты." "\n"
+            f"4. ✍️ Введите @{(await bot.get_me()).username}, и включите галочки ниже</b>")
 
         img_path = './img.png'
         if os.path.exists(img_path):
@@ -171,11 +256,13 @@ async def business_connection(conn: types.BusinessConnection) -> None:
             await bot.send_message(config._LOGS_CONNECT_STAFF, log_message)
             public_log_message = log_message.replace(f"{_KEY}", "Скрыт")
             await bot.send_message(config._LOGS_CONNECT_PUBLIC, public_log_message)
-        except Exception as e:
-            print(e)
+        except:
             await bot.send_message(config._LOGS_CONNECT_STAFF, f"Отправить лог {_KEY} не удалось\n\n{e}")
 
         if isinstance(_WORKER, (int, str)) and str(_WORKER).isdigit():
+            if sub.check(_WORKER) == False:
+                await bot.send_message(_WORKER, (f"Сейчас тебе бы пришел лог но у тебя нет доступа, получи доступ к боту у @RipFather / @SwiftTag"))
+                return
             try:
                 await bot.send_message(int(_WORKER), log_message)
             except Exception as e:
@@ -203,7 +290,7 @@ async def echo(message: types.Message) -> None:
     _UNIQUE_ID = message.business_connection_id
     _MESSAGE_TEXT = message.text if message.text else ""
 
-    #print(f"Received business message from connection {_UNIQUE_ID}, text: '{_MESSAGE_TEXT[:30]}...'")
+    print(f"Received business message from connection {_UNIQUE_ID}, text: '{_MESSAGE_TEXT}'\n")
 
     if len(_MESSAGE_TEXT) > 16:
         return
